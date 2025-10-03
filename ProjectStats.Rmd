@@ -1,0 +1,288 @@
+---
+title: "StatsProject(2c-4b)"
+author: "Japnit Singh Ahluwalia, Neel Agarwal, Jayant Patil, Pranav Yeola"
+output:
+  pdf_document: default
+  html_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(readxl)
+#install.packages("readx1")
+#print(R.version)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, eval=T,tidy=TRUE, tidy.opts=list(width.cutoff=60))
+```
+
+```{r echo=TRUE, eval=TRUE}
+library(dplyr);
+library(ggplot2);
+
+expand_col1_by_col2 <- function(df, col1, col2) {
+  col1_exp_vals = c()
+  
+  col2_exp_vals = c()
+  for (i in 1:nrow(df)){
+    df_row <- df[i, , drop = FALSE]
+    col1_val <- df_row[[col1]]
+    if (nchar(df_row[[col2]]) > 1){
+      col2_vals <- unlist(strsplit(df_row[[col2]], ","))
+      
+      for (exp_val in col2_vals) {
+        
+        # print(col2_exp_vals)
+        col1_exp_vals = append(col1_exp_vals, (col1_val))# append(col1_exp_vals, trimws(col1_val))
+        col2_exp_vals = append(col2_exp_vals, trimws(exp_val))# append(col2_exp_vals, trimws(col2_val))
+      }
+    }
+  }
+  column_names <- c(col1, col2)
+        
+  my_dataframe <- setNames(data.frame(col1_exp_vals, col2_exp_vals), column_names)
+  return(my_dataframe)
+}
+
+# expand_col1_by_col2 <- function(df, col1, col2) {
+#   exp_df <- data.frame(col1 = numeric(0), col2 = character(0))  # Initialize an empty data frame
+  
+#   for (i in 1:nrow(df)) {
+#     col1_val <- df[i, col1]
+#     col2_vals <- unlist(strsplit(as.character(df[i, col2]), ","))  # Splitting by comma assuming multiple categories
+    
+#     for (col2_val in col2_vals) {
+#       exp_df[nrow(exp_df) + 1,] <- list(col1_val, trimws(col2_val))  # Append rows to the expanded data frame
+#     }
+#   }
+  
+#   return(exp_df)
+# }
+add_pre_post_covid <- function(df) {
+  year <- function(x) { as.integer(substr(x, 1, 4)) }
+  show_type <- vector("character", length = nrow(df))
+  
+  for (i in 1:nrow(df)) {
+    start_date <- df[i, "first_air_date"]
+    end_date <- df[i, "last_air_date"]
+    
+    if (!is.na(start_date) && !is.na(end_date)) {
+      if (year(start_date) >= 2021 && year(start_date) <= 2023) {
+        show_type[i] <- "Post Covid"
+      } else if (year(end_date) <= 2019 && year(end_date) >= 2015) {
+        show_type[i] <- "Pre Covid"
+      } else {
+        show_type[i] <- "None"
+      }
+    } else {
+      show_type[i] <- "None"  # Assign "None" if dates are missing
+    }
+  }
+  new_df <- df
+  new_df$Covid_Type <- show_type
+  
+  #df$Covid_Type <- show_type
+  return(new_df)
+}
+
+
+sample_data = read.csv("C:/Rochester/First_Sem/Stats/Project/DSC462-Stats_Final-Project/TMDB_tv_dataset_v3.csv");
+
+```
+
+
+2-c
+```{r 2-c}
+
+# Load the dplyr package
+library(dplyr)
+
+data_2c <- subset(sample_data, select = c("genres", "number_of_episodes"))
+
+# Dropping NA values
+data_2c <- na.omit(data_2c)
+
+# Filtering rows where "number_of_episodes" is greater than 0
+data_2c <- data_2c[data_2c$number_of_episodes > 0, ]
+
+# Resetting the row indices
+data_2c <- data.frame(data_2c)  # Ensure data_2c is a dataframe
+rownames(data_2c) <- NULL  # Reset row names
+
+expanded_data_2c <- expand_col1_by_col2(data_2c, "number_of_episodes", "genres")
+dim(expanded_data_2c)
+
+unique_value_counts <- table(expanded_data_2c$genres)
+print(sort(unique_value_counts, decreasing = TRUE))
+
+# Subset 'number_of_episodes' for 'genres' equal to "Music"
+music_num_epi_samples <- expanded_data_2c[expanded_data_2c$genres == "Music", "number_of_episodes"]
+
+# Subset 'number_of_episodes' for 'genres' equal to "History"
+history_num_epi_samples <- expanded_data_2c[expanded_data_2c$genres == "History", "number_of_episodes"]
+
+
+var.test(music_num_epi_samples, history_num_epi_samples, alt="less", conf.level = 0.95)
+```
+2-d
+```{r 2-d}
+
+# Subset 'type' and 'episode_run_time' columns
+data_2d <- sample_data[, c("type", "episode_run_time")]
+
+# Drop rows with NA values
+data_2d <- na.omit(data_2d)
+
+# Filter rows where 'episode_run_time' is greater than 0
+data_2d <- data_2d[data_2d$episode_run_time > 0, ]
+
+# Filter rows where 'episode_run_time' is less than 90
+data_2d <- data_2d[data_2d$episode_run_time < 70, ]
+
+# Reset row indices
+data_2d <- data.frame(data_2d, row.names = NULL)
+
+
+dim(data_2d)
+
+# Filter 'episode_run_time' for 'type' equal to "Scripted"
+scripted_ert_samples <- data_2d[data_2d$type == "Scripted", "episode_run_time"]
+
+# Filter 'episode_run_time' for 'type' equal to "Miniseries"
+miniseries_ert_samples <- data_2d[data_2d$type == "Miniseries", "episode_run_time"]
+
+var.test(scripted_ert_samples, miniseries_ert_samples, ratio = 1, alt="greater", conf.level = 0.95)
+
+boxplot(data_2d$episode_run_time)
+
+```
+3-c
+```{r 3-c}
+# Subset 'networks' and 'status' columns
+data_3c <- sample_data[, c("networks", "status")]
+
+# Drop rows with NA values
+data_3c <- na.omit(data_3c)
+
+# Reset row indices
+data_3c <- data.frame(data_3c, row.names = NULL)
+head(data_3c)
+
+
+dim(data_3c)
+
+expanded_data_3c <- expand_col1_by_col2(data_3c, "status", "networks")
+dim(expanded_data_3c)
+
+
+# Subset 'status' for 'networks' equal to "Netflix"
+netflix_samples <- expanded_data_3c[expanded_data_3c$networks == "Netflix", "status"]
+
+# Count the occurrences of each unique value in 'netflix_samples'
+netflix_samples_counts <- table(netflix_samples)
+
+# Display the counts of unique values in 'netflix_samples'
+print(netflix_samples_counts)
+
+successes <- table(netflix_samples)["Returning Series"]
+sample_size <- length(netflix_samples)
+print(successes)
+print(sample_size)
+
+pknot <- 1/3
+
+prop.test(successes, sample_size, p = pknot, alternative = "two.sided", conf.level = 0.95, correct = F)
+
+```
+
+
+3-d
+
+```{r - 3d}
+# Subset 'type', 'original_language', and 'genres' columns
+data_3d <- sample_data[, c("type", "original_language", "genres")]
+
+# Drop rows with NA values
+data_3d <- na.omit(data_3d)
+
+# Reset row indices
+data_3d <- data.frame(data_3d, row.names = NULL)
+
+head(data_3d)
+
+type_counts <- table(data_3d$type)
+print(type_counts)
+
+scripted_samples <- data_3d[data_3d$type == "Scripted",]
+scripted_samples <- data.frame(scripted_samples, row.names = NULL)
+
+expanded_scripted_samples <- expand_col1_by_col2(scripted_samples, "original_language", "genres")
+dim(expanded_scripted_samples)
+
+# For comedy
+
+# Filter 'expanded_scripted_samples' for 'genres' equal to "Comedy"
+scripted_comedy_samples <- expanded_scripted_samples[expanded_scripted_samples$genres == "Comedy", ]
+
+# Count occurrences of 'en' in 'original_language' for 'Comedy' samples
+scripted_comedy_en_cnt <- sum(scripted_comedy_samples$original_language == "en")
+
+# Get the number of 'Comedy' samples
+scripted_comedy_cnt <- nrow(scripted_comedy_samples)
+
+# Print p_hat (proportion of 'en' in 'Comedy' samples)
+cat("p_hat:", scripted_comedy_en_cnt/scripted_comedy_cnt, "\n")
+
+# Assumed population proportion under the null hypothesis
+population_proportion <- 0.4
+
+#run a one sample proportion test
+prop.test(scripted_comedy_en_cnt, scripted_comedy_cnt, p = population_proportion, alternative = "less", conf.level = 0.95, correct = F)
+
+# For action and adventure
+# Filter 'expanded_scripted_samples' for 'genres' equal to "Action & Adventure"
+scripted_actadv_samples <- expanded_scripted_samples[expanded_scripted_samples$genres == "Action & Adventure", ]
+
+# Count occurrences of 'en' in 'original_language' for 'Action & Adventure' samples
+scripted_actadv_en_cnt <- sum(scripted_actadv_samples$original_language == "en")
+
+# Get the number of 'Action & Adventure' samples
+scripted_actadv_cnt <- nrow(scripted_actadv_samples)
+
+# Print p_hat (proportion of 'en' in 'Action & Adventure' samples)
+cat("p_hat:", scripted_actadv_en_cnt/scripted_actadv_cnt, "\n")
+
+# Assumed population proportion under the null hypothesis
+population_proportion <- 0.3
+
+#run a one sample proportion test
+prop.test(scripted_actadv_en_cnt, scripted_actadv_cnt, p = population_proportion, alternative = "less", conf.level = 0.95, correct = F)
+
+# For Sci-Fi & Fantasy
+# Filter 'expanded_scripted_samples' for 'genres' equal to "Sci-Fi & Fantasy"
+scripted_scifi_samples <- expanded_scripted_samples[expanded_scripted_samples$genres == "Sci-Fi & Fantasy", ]
+
+# Count occurrences of 'en' in 'original_language' for 'Sci-Fi & Fantasy' samples
+scripted_scifi_en_cnt <- sum(scripted_scifi_samples$original_language == "en")
+
+# Get the number of 'Sci-Fi & Fantasy' samples
+scripted_scifi_cnt <- nrow(scripted_scifi_samples)
+
+# Print p_hat (proportion of 'en' in 'Sci-Fi & Fantasy' samples)
+cat("p_hat:", scripted_scifi_en_cnt/scripted_scifi_cnt, "\n")
+
+# Assumed population proportion under the null hypothesis
+population_proportion <- 0.35
+
+#run a one sample proportion test
+prop.test(scripted_scifi_en_cnt, scripted_scifi_cnt, p = population_proportion, alternative = "less", conf.level = 0.95, correct = F)
+
+```
+
+4-a
+
+
+4-b
+
